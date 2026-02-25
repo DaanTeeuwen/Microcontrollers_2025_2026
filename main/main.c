@@ -2,7 +2,7 @@
 #include "myADC.h"
 #include "myGPIO.h"
 
-#define RED 2
+#define RED 2 
 #define GREEN 3
 #define BLUE 4
 
