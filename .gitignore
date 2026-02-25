@@ -1,3 +1,37 @@
+# Build directories
+/build/
+/bootloader/
+
+# CMake and build files
+/CMakeFiles/
+/CMakeCache.txt
+/cmake_install.cmake
+/compile_commands.json
+/build.ninja
+
+# Project outputs
+*.elf
+*.bin
+*.map
+*.hex
+
+# Generated project files
+/project_description.json
+
+# SDK/IDF generated files
+/sdkconfig.cmake
+/sdkconfig.old
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs and temporary
+*.log
 # macOS
 .DS_Store
 .AppleDouble
