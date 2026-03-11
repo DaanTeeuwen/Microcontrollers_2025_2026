@@ -1,0 +1,11 @@
+dependencies:
+
+  myADC:
+    path: myADC
+    git: git@github.com:DaanTeeuwen/Microcontrollers_2025_2026.git
+
+
+
+  myGPIO:
+    path: components/myGPIO
+    git: git@github.com:KNaelaerts/ESP32_Periferie.git
