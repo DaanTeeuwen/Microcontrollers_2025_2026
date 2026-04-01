@@ -1,0 +1,18 @@
+dependencies:
+  idf:
+    source:
+      type: idf
+    version: 5.5.2
+  myUARTUART:
+    component_hash: dc639225350069227544c7eaeabda6715a352042eb0608d5e7afdac4965b7e0c
+    dependencies: []
+    source:
+      git: https://github.com/KNaelaerts/ESP32_Periferie.git
+      path: components/myUART
+      type: git
+    version: a1623523337cabfc1783a4fe8213e07b7b3ea8f5
+direct_dependencies:
+- myUARTUART
+manifest_hash: fd5da13dc21d98cfb8d2b2d53dbe6e94996cb3324de5ca854d15edd701ce76b1
+target: esp32
+version: 2.0.0
