@@ -1,0 +1,11 @@
+{
+  "folders": [
+    {
+      "path": "myEndProject2026",
+      "name": "myEndProject2026 (ESP-IDF)"
+    }
+  ],
+  "settings": {
+    "idf.currentSetup": "C:\\esp\\v5.5.2\\esp-idf"
+  }
+}

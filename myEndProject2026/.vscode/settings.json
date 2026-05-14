@@ -1,0 +1,11 @@
+{
+  "idf.currentSetup": "C:\\esp\\v5.5.2\\esp-idf",
+  "idf.sdkconfigFilePath": "${workspaceFolder}\\myEndProject2026\\sdkconfig",
+  "idf.buildPathWin": "${workspaceFolder}\\myEndProject2026\\build",
+  "clangd.path": "C:\\Espressif\\tools\\esp-clang\\esp-19.1.2_20250312\\esp-clang\\bin\\clangd.exe",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=c:\\Users\\daant\\Projecten_Microcontrollers\\myEndProject2026\\myEndProject2026\\build"
+  ]
+}

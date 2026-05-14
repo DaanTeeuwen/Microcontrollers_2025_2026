@@ -1,0 +1,26 @@
+menu "BME280 I2C (hardware)"
+
+    config BME280_I2C_SDA_GPIO
+        int "GPIO voor I2C SDA"
+        range 0 33
+        default 21
+        help
+            Moet exact overeenkomen met de pin waarop je SDA van de BME280 aansluit.
+            Geen chip-ID? Controleer draad, GND, 3V3 en pull-ups; probeer evt. andere vrije GPIO's.
+
+    config BME280_I2C_SCL_GPIO
+        int "GPIO voor I2C SCL"
+        range 0 33
+        default 22
+
+    config BME280_I2C_PORT_NUM
+        int "I2C-controller (0 = I2C_NUM_0, 1 = I2C_NUM_1)"
+        range 0 1
+        default 0
+
+    config BME280_I2C_FREQ_HZ
+        int "I2C-snelheid in Hz (100000 aanbevolen op breadboard)"
+        range 10000 400000
+        default 100000
+
+endmenu
