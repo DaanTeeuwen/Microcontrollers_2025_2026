@@ -24,3 +24,14 @@ menu "BME280 I2C (hardware)"
         default 100000
 
 endmenu
+
+menu "SSD1306 OLED (I2C, zelfde bus als BME280)"
+
+    config SSD1306_I2C_ADDR_7BIT
+        int "SSD1306 7-bit I2C-adres (60 = 0x3C, 61 = 0x3D)"
+        range 60 61
+        default 60
+        help
+            Meeste modules: 0x3C (60). Sommige: 0x3D (61).
+
+endmenu

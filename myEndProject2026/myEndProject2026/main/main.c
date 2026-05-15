@@ -7,6 +7,7 @@
 #include "esp_log.h"
 #include "i2c_bus.h"
 #include "bme280.h"
+#include "ssd1306_graph.h"
 
 #define I2C_MASTER_SDA_IO   CONFIG_BME280_I2C_SDA_GPIO
 #define I2C_MASTER_SCL_IO   CONFIG_BME280_I2C_SCL_GPIO
@@ -93,11 +94,16 @@ void app_main(void)
 
         vTaskDelay(pdMS_TO_TICKS(100));
 
+        if (ssd1306_graph_init(i2c_bus) != ESP_OK) {
+            ESP_LOGW(TAG, "SSD1306 niet gevonden of init mislukt — alleen seriële logging");
+        }
+
         uint8_t used_addr = 0;
         bme280_handle_t bme280 = create_bme280_with_auto_address(i2c_bus, &used_addr);
         if (bme280 == NULL) {
             log_wiring_checklist_once();
             ESP_LOGW(TAG, "Opnieuw proberen over %d s (fix bedrading; herflash niet nodig)", BME280_CONNECT_RETRY_MS / 1000);
+            ssd1306_graph_deinit();
             i2c_bus_delete(&i2c_bus);
             vTaskDelay(pdMS_TO_TICKS(BME280_CONNECT_RETRY_MS));
             continue;
@@ -118,12 +124,15 @@ void app_main(void)
             ESP_LOGE(TAG, "Eerste meting na %d pogingen: %s — bus opruimen en opnieuw",
                      BME280_FIRST_READ_TRIES, esp_err_to_name(ret));
             bme280_delete(&bme280);
+            ssd1306_graph_deinit();
             i2c_bus_delete(&i2c_bus);
             vTaskDelay(pdMS_TO_TICKS(BME280_CONNECT_RETRY_MS));
             continue;
         }
 
         ESP_LOGI(TAG, "Sensor OK (eerste meting %.2f °C)", sanity);
+
+        ssd1306_graph_push_temperature(sanity);
 
         while (1) {
             float temperature = 0.0f;
@@ -144,13 +153,16 @@ void app_main(void)
                 ESP_LOGE(TAG, "read_pressure: %s", esp_err_to_name(ret));
             }
 
-            ESP_LOGI(TAG, "Temperature: %.2f °C, Humidity: %.2f %%, Pressure: %.2f hPa",
+            ESP_LOGI(TAG, "Temperatuur: %.2f °C, Luchtvochtigheid: %.2f %%, Luchtdruk: %.2f hPa",
                      temperature, humidity, pressure);
+
+            ssd1306_graph_push_temperature(temperature);
 
             vTaskDelay(pdMS_TO_TICKS(2000));
         }
 
         bme280_delete(&bme280);
+        ssd1306_graph_deinit();
         i2c_bus_delete(&i2c_bus);
         ESP_LOGW(TAG, "Metingen afgebroken — opnieuw verbinden...");
         vTaskDelay(pdMS_TO_TICKS(500));

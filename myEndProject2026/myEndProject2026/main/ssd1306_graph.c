@@ -20,6 +20,12 @@
 #define GRAPH_TOP           6
 #define GRAPH_BOTTOM        61
 
+#define GRAPH_LEFT          8
+#define GRAPH_RIGHT         (SSD1306_WIDTH - 28)
+#define GRAPH_WIDTH         (GRAPH_RIGHT - GRAPH_LEFT + 1)
+#define LABEL_AREA_LEFT     0
+#define LABEL_AREA_RIGHT    (GRAPH_LEFT - 1)
+
 static const char *TAG = "ssd1306";
 
 static i2c_bus_device_handle_t s_dev;
@@ -93,6 +99,56 @@ static void fb_set_pixel(int x, int y)
     s_fb[x + (y / 8) * SSD1306_WIDTH] |= (uint8_t)(1u << (y & 7));
 }
 
+/* Eenvoudig 5x7 ASCII font voor 32..127 (we gebruiken alleen 0-9, minus en dot) */
+static const uint8_t font5x7[][5] = {
+    /* '0' (48) .. '9' (57) */
+    {0x3E,0x51,0x49,0x45,0x3E}, /* 0 */
+    {0x00,0x42,0x7F,0x40,0x00}, /* 1 */
+    {0x42,0x61,0x51,0x49,0x46}, /* 2 */
+    {0x21,0x41,0x45,0x4B,0x31}, /* 3 */
+    {0x18,0x14,0x12,0x7F,0x10}, /* 4 */
+    {0x27,0x45,0x45,0x45,0x39}, /* 5 */
+    {0x3C,0x4A,0x49,0x49,0x30}, /* 6 */
+    {0x01,0x71,0x09,0x05,0x03}, /* 7 */
+    {0x36,0x49,0x49,0x49,0x36}, /* 8 */
+    {0x06,0x49,0x49,0x29,0x1E}  /* 9 */
+};
+/* minus '-' and dot '.' */
+static const uint8_t font_minus[5] = {0x08,0x08,0x08,0x08,0x08};
+static const uint8_t font_dot[5]   = {0x00,0x60,0x60,0x00,0x00};
+
+static void fb_draw_char_small(int x, int y, char c)
+{
+    const uint8_t *glyph = NULL;
+    if (c >= '0' && c <= '9') {
+        glyph = font5x7[c - '0'];
+    } else if (c == '-') {
+        glyph = font_minus;
+    } else if (c == '.') {
+        glyph = font_dot;
+    } else {
+        return; /* niet ondersteund */
+    }
+
+    for (int col = 0; col < 5; col++) {
+        uint8_t colbits = glyph[col];
+        for (int row = 0; row < 7; row++) {
+            if (colbits & (1 << row)) {
+                fb_set_pixel(x + col, y + row);
+            }
+        }
+    }
+}
+
+static void fb_draw_text_small(int x, int y, const char *s)
+{
+    while (*s) {
+        fb_draw_char_small(x, y, *s++);
+        x += 6; /* 5px + 1px spacing */
+    }
+}
+
+
 static void draw_hline(int x0, int x1, int y)
 {
     if (x0 > x1) {
@@ -154,45 +210,100 @@ static int map_temp_y(float t, float tmin, float tmax)
 
 static void redraw_graph(float latest)
 {
+    /* schuif historie en voeg nieuwe waarde toe */
     memmove(s_hist, s_hist + 1, sizeof(s_hist[0]) * (SSD1306_WIDTH - 1));
     s_hist[SSD1306_WIDTH - 1] = latest;
     s_have_hist = true;
 
     fb_clear();
 
-    draw_hline(0, SSD1306_WIDTH - 1, GRAPH_TOP - 1);
-    draw_hline(0, SSD1306_WIDTH - 1, GRAPH_BOTTOM + 1);
+    /* teken boven/onder rand van grafiek */
+    draw_hline(GRAPH_LEFT, GRAPH_RIGHT, GRAPH_TOP - 1);
+    draw_hline(GRAPH_LEFT, GRAPH_RIGHT, GRAPH_BOTTOM + 1);
 
+    /* bepaal min/max over de zichtbare grafiekbreedte (laatste samples) */
     float tmin = latest;
     float tmax = latest;
-    for (int i = 0; i < SSD1306_WIDTH; i++) {
+    int start_idx = SSD1306_WIDTH - GRAPH_WIDTH;
+    if (start_idx < 0) start_idx = 0;
+    for (int i = start_idx; i < SSD1306_WIDTH; i++) {
         float v = s_hist[i];
-        if (v < tmin) {
-            tmin = v;
-        }
-        if (v > tmax) {
-            tmax = v;
-        }
+        if (v < tmin) tmin = v;
+        if (v > tmax) tmax = v;
     }
     float margin = 0.5f;
     tmin -= margin;
     tmax += margin;
-    if (tmax - tmin < 1.0f) {
-        tmax = tmin + 1.0f;
+    if (tmax - tmin < 1.0f) tmax = tmin + 1.0f;
+
+    /* teken horizontale gridlijnen en Y-labels (min, mid, max) */
+    float mid = (tmin + tmax) / 2.0f;
+    int y_min = map_temp_y(tmin, tmin, tmax);
+    int y_mid = map_temp_y(mid, tmin, tmax);
+    int y_max = map_temp_y(tmax, tmin, tmax);
+
+    /* ticks op linker rand (blijven exact op de y-positie) */
+    draw_hline(GRAPH_LEFT - 2, GRAPH_LEFT - 1, y_min);
+    draw_hline(GRAPH_LEFT - 2, GRAPH_LEFT - 1, y_mid);
+    draw_hline(GRAPH_LEFT - 2, GRAPH_LEFT - 1, y_max);
+
+    /* labels (tekst) links — clamp zodat ze niet over de boven/onderlijn tekenen */
+    const int text_h = 7;      /* fonthoogte 7px */
+    const int pad = 3;         /* minimale afstand tot rand */
+    const int y_text_min = GRAPH_TOP + pad;
+    const int y_text_max = GRAPH_BOTTOM - text_h - pad;
+
+    int ly_max = y_max - (text_h / 2);
+    if (ly_max < y_text_min) ly_max = y_text_min;
+    if (ly_max > y_text_max) ly_max = y_text_max;
+
+    int ly_mid = y_mid - (text_h / 2);
+    if (ly_mid < y_text_min) ly_mid = y_text_min;
+    if (ly_mid > y_text_max) ly_mid = y_text_max;
+
+    int ly_min = y_min - (text_h / 2);
+    if (ly_min < y_text_min) ly_min = y_text_min;
+    if (ly_min > y_text_max) ly_min = y_text_max;
+
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%.1f", tmax);
+    fb_draw_text_small(0, ly_max, buf);
+    snprintf(buf, sizeof(buf), "%.1f", mid);
+    fb_draw_text_small(0, ly_mid, buf);
+    snprintf(buf, sizeof(buf), "%.1f", tmin);
+    fb_draw_text_small(0, ly_min, buf);
+
+    /* teken de grafieklijn en punten; we mappen historie naar GRAPH_LEFT..GRAPH_RIGHT */
+    for (int x = 1; x < GRAPH_WIDTH; x++) {
+        int idx0 = x - 1;
+        int idx1 = x;
+        float v0 = s_hist[start_idx + idx0];
+        float v1 = s_hist[start_idx + idx1];
+        int y0 = map_temp_y(v0, tmin, tmax);
+        int y1 = map_temp_y(v1, tmin, tmax);
+        draw_line(GRAPH_LEFT + idx0, y0, GRAPH_LEFT + idx1, y1);
+        /* teken punt op sample (zichtbaarer maken door 1 extra pixel) */
+        fb_set_pixel(GRAPH_LEFT + idx1, y1);
+        if (y1 > 0) fb_set_pixel(GRAPH_LEFT + idx1, y1 - 1);
     }
 
-    for (int x = 1; x < SSD1306_WIDTH; x++) {
-        int y0 = map_temp_y(s_hist[x - 1], tmin, tmax);
-        int y1 = map_temp_y(s_hist[x], tmin, tmax);
-        draw_line(x - 1, y0, x, y1);
-    }
-
+    /* verticale balk rechts als indicator van actuele waarde */
     int ybar = map_temp_y(latest, tmin, tmax);
     for (int yy = GRAPH_BOTTOM; yy >= ybar; yy--) {
-        fb_set_pixel(SSD1306_WIDTH - 2, yy);
-        fb_set_pixel(SSD1306_WIDTH - 1, yy);
+        fb_set_pixel(GRAPH_RIGHT - 1, yy);
+        fb_set_pixel(GRAPH_RIGHT, yy);
     }
+
+    /* actuele waarde als tekst rechtsboven in labelgebied (clamp y indien nodig) */
+    snprintf(buf, sizeof(buf), "%.1fC", latest);
+    int tx = GRAPH_RIGHT + 2;
+    int ty = GRAPH_TOP;
+    if (ty < 0) ty = 0;
+    if (ty > SSD1306_HEIGHT - text_h) ty = SSD1306_HEIGHT - text_h;
+    fb_draw_text_small(tx, ty, buf);
 }
+
+
 
 esp_err_t ssd1306_graph_init(i2c_bus_handle_t bus)
 {
